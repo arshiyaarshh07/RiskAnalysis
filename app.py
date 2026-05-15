@@ -707,7 +707,7 @@ if page == "Upload Evidence":
                     status.info(f"Analyzing {uploaded_file.name} ({file_idx + 1}/{total})…")
 
                     response = requests.post(
-                        "https://riskanalysis-2ohk.onrender.comanalyze",
+                        "https://riskanalysis-2ohk.onrender.com/analyze",
                         files=files
                     )
 
@@ -1268,7 +1268,7 @@ elif page == "Settings":
                 <div style='background:{"rgba(255,255,255,0.04)" if st.session_state.theme=="dark" else "rgba(0,0,0,0.04)"};
                             border-radius:10px;padding:12px 16px;font-family:monospace;font-size:13px;
                             border:1px solid {BORDER};word-break:break-all'>
-                    https://riskanalysis-2ohk.onrender.comanalyze
+                    https://riskanalysis-2ohk.onrender.com/analyze
                 </div>
             </div>
             """,
