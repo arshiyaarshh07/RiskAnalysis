@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+
+# Environment Variables
+.env
+
+# IDE Files
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Streamlit
+.streamlit/
+
+# Uploads & Generated Reports
+uploads/
+reports/
+
+# Temporary OCR Images
+temp_page_*.png
+
+# Python Build Files
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# SQLite
+*.db
+*.sqlite3
+
+# PDF Reports
+*.pdf
+
+# Excel Temp Files
+~$*.xlsx
+
+# Secrets / API Keys
+secrets.json
+credentials.json
+
+# Cache
+.cache/
+
+# mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# PyCharm
+*.iml
+
+# Windows
+desktop.ini
+
+# Mac
+.AppleDouble
+.LSOverride
