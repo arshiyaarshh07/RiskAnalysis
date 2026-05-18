@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 import shutil
 import os
 
@@ -9,6 +9,7 @@ from extractor.excel_parser import extract_excel
 
 from utils.helpers import clean_text
 from ai_engine.analyzer import analyze_text
+from ai_engine.prompt_templates import normalize_framework, get_framework_label
 from output.report_generator import generate_report
 
 app = FastAPI()
@@ -18,7 +19,10 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
+async def analyze(
+    file: UploadFile = File(...),
+    framework: str = Form("soc2"),
+):
 
     try:
 
@@ -55,7 +59,8 @@ async def analyze(file: UploadFile = File(...)):
 
         cleaned_text = clean_text(extracted_text)
 
-        analysis = analyze_text(cleaned_text)
+        review_framework = normalize_framework(framework)
+        analysis = analyze_text(cleaned_text, framework=review_framework)
 
         os.makedirs("reports", exist_ok=True)
 
@@ -70,7 +75,9 @@ async def analyze(file: UploadFile = File(...)):
 
         return {
             "analysis": analysis,
-            "report": report_path
+            "report": report_path,
+            "framework": review_framework,
+            "framework_label": get_framework_label(review_framework),
         }
 
     except Exception as e:

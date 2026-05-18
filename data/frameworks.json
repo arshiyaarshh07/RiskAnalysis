@@ -1,13 +1,33 @@
 {
+  "default": "soc2",
+  "frameworks": {
+    "soc2": {
+      "id": "soc2",
+      "label": "SOC 2 Type II",
+      "description": "Trust Services Criteria–aligned evidence review (Security, Availability, Confidentiality, Processing Integrity, Privacy as applicable)."
+    },
+    "iso27001": {
+      "id": "iso27001",
+      "label": "ISO/IEC 27001",
+      "description": "Annex A control themes and ISMS evidence review aligned to ISO 27001 security management practices."
+    },
+    "tprm": {
+      "id": "tprm",
+      "label": "General TPRM",
+      "description": "Vendor third-party risk review using SOC 2 and ISO 27001 principles without a single certification lens."
+    }
+  },
   "categories": [
     "Access Control",
+    "Identity & MFA",
     "Data Protection",
-    "Compliance",
-    "Vulnerability Management",
-    "Incident Response",
-    "Third-Party Risk",
-    "Business Continuity",
+    "Encryption",
     "Logging & Monitoring",
-    "Governance"
+    "Incident Response",
+    "Vulnerability Management",
+    "Business Continuity",
+    "Governance",
+    "Third-Party Risk",
+    "Compliance Controls"
   ]
 }

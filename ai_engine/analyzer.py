@@ -3,29 +3,22 @@ from dotenv import load_dotenv
 import os
 import json
 
+from ai_engine.prompt_templates import (
+    SYSTEM_PROMPT,
+    build_analysis_prompt,
+    normalize_framework,
+    get_framework_label,
+)
+
 load_dotenv()
 
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
 
-SYSTEM_PROMPT = """
-You are a cybersecurity TPRM evidence review assistant.
-
-STRICT RULES:
-- Only analyze provided evidence
-- Never hallucinate
-- Never say confirmed breach
-- Use:
-  - Potential Risk
-  - Missing Evidence
-- Return STRICT JSON ONLY
-"""
-
 MODEL_NAME = "llama-3.1-8b-instant"
 
 CHUNK_SIZE = 2500
-
 
 
 def split_text(text, chunk_size=CHUNK_SIZE):
@@ -41,73 +34,53 @@ def split_text(text, chunk_size=CHUNK_SIZE):
     return chunks
 
 
-def analyze_chunk(chunk):
+def _parse_json_response(raw: str) -> dict:
+    result = raw.strip()
 
-    prompt = f"""
-{SYSTEM_PROMPT}
+    if result.startswith("```json"):
+        result = result.replace("```json", "")
+        result = result.replace("```", "")
 
-Analyze this cybersecurity evidence.
+    return json.loads(result.strip())
 
-Evidence:
-{chunk}
 
-Return ONLY valid JSON.
+def analyze_chunk(chunk: str, framework: str | None = None):
 
-Format:
-
-{{
-  "summary": "...",
-  "risks": [
-    {{
-      "category": "...",
-      "risk": "...",
-      "severity": "...",
-      "recommendation": "...",
-      "confidence": 85
-    }}
-  ]
-}}
-"""
+    fid = normalize_framework(framework)
+    user_prompt = build_analysis_prompt(chunk, framework=fid)
 
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
             {
                 "role": "system",
-                "content": SYSTEM_PROMPT
+                "content": SYSTEM_PROMPT,
             },
             {
                 "role": "user",
-                "content": prompt
-            }
+                "content": user_prompt,
+            },
         ],
-        temperature=0
+        temperature=0,
     )
 
     result = response.choices[0].message.content.strip()
-
-    if result.startswith("```json"):
-        result = result.replace("```json", "")
-        result = result.replace("```", "")
-
-    result = result.strip()
-
-    return json.loads(result)
+    return _parse_json_response(result)
 
 
-def analyze_text(text):
+def analyze_text(text: str, framework: str | None = None):
 
+    fid = normalize_framework(framework)
     chunks = split_text(text)
 
     all_risks = []
-
     summaries = []
 
     for chunk in chunks:
 
         try:
 
-            result = analyze_chunk(chunk)
+            result = analyze_chunk(chunk, framework=fid)
 
             summaries.append(
                 result.get("summary", "")
@@ -122,14 +95,23 @@ def analyze_text(text):
             print("\nCHUNK ERROR:\n")
             print(str(e))
 
+    framework_label = get_framework_label(fid)
+
     if not all_risks:
 
         return {
-            "summary": "AI analysis could not identify major risks.",
-            "risks": []
+            "summary": (
+                f"[{framework_label}] AI analysis could not identify major risks "
+                "from the provided evidence."
+            ),
+            "risks": [],
+            "framework": fid,
+            "framework_label": framework_label,
         }
 
     return {
         "summary": " ".join(summaries[:2]),
-        "risks": all_risks
+        "risks": all_risks,
+        "framework": fid,
+        "framework_label": framework_label,
     }

@@ -5,6 +5,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
+
+def _stretched_width_kwargs():
+    """Streamlit 1.57+ uses width=; older releases use use_container_width."""
+    parts = st.__version__.split(".")
+    major = int(parts[0]) if len(parts) > 0 else 0
+    minor = int(parts[1]) if len(parts) > 1 else 0
+    if (major, minor) >= (1, 57):
+        return {"width": "stretch"}
+    return {"use_container_width": True}
+
+
 # ---------------------------------------------------
 # PAGE CONFIG
 # ---------------------------------------------------
@@ -34,6 +45,36 @@ if "final_summary" not in st.session_state:
 
 if "uploaded_file_names" not in st.session_state:
     st.session_state.uploaded_file_names = []
+
+if "assessment_framework" not in st.session_state:
+    st.session_state.assessment_framework = "soc2"
+
+if "framework_label" not in st.session_state:
+    st.session_state.framework_label = "SOC 2 Type II"
+
+FRAMEWORK_OPTIONS = {
+    "SOC 2 Type II": "soc2",
+    "ISO/IEC 27001": "iso27001",
+    "General TPRM": "tprm",
+}
+FRAMEWORK_ID_TO_LABEL = {v: k for k, v in FRAMEWORK_OPTIONS.items()}
+
+# Severity palette — Critical: maroon, High: red
+COLOR_SEVERITY_CRITICAL = "#800000"
+COLOR_SEVERITY_HIGH = "#E53935"
+COLOR_SEVERITY_MEDIUM = "#FFB300"
+COLOR_SEVERITY_LOW = "#00E396"
+COLOR_SEVERITY_CRITICAL_BG = "rgba(128, 0, 0, 0.15)"
+COLOR_SEVERITY_CRITICAL_BORDER = "rgba(128, 0, 0, 0.35)"
+COLOR_SEVERITY_HIGH_BG = "rgba(229, 57, 53, 0.15)"
+COLOR_SEVERITY_HIGH_BORDER = "rgba(229, 57, 53, 0.35)"
+
+SEVERITY_COLORS = {
+    "Critical": COLOR_SEVERITY_CRITICAL,
+    "High": COLOR_SEVERITY_HIGH,
+    "Medium": COLOR_SEVERITY_MEDIUM,
+    "Low": COLOR_SEVERITY_LOW,
+}
 
 # ---------------------------------------------------
 # SIDEBAR
@@ -105,11 +146,11 @@ with st.sidebar:
                 <div style='font-size:11px;font-weight:700;letter-spacing:1.5px;opacity:0.4;text-transform:uppercase;margin-bottom:12px'>Risk Summary</div>
                 <div style='display:flex;justify-content:space-between;margin-bottom:8px'>
                     <span style='font-size:13px;opacity:0.7'>Critical</span>
-                    <span style='font-size:13px;font-weight:700;color:#FF4560;background:rgba(255,69,96,0.12);padding:1px 10px;border-radius:20px'>{critical_s}</span>
+                    <span style='font-size:13px;font-weight:700;color:{COLOR_SEVERITY_CRITICAL};background:{COLOR_SEVERITY_CRITICAL_BG};padding:1px 10px;border-radius:20px'>{critical_s}</span>
                 </div>
                 <div style='display:flex;justify-content:space-between;margin-bottom:8px'>
                     <span style='font-size:13px;opacity:0.7'>High</span>
-                    <span style='font-size:13px;font-weight:700;color:#FF8C00;background:rgba(255,140,0,0.12);padding:1px 10px;border-radius:20px'>{high_s}</span>
+                    <span style='font-size:13px;font-weight:700;color:{COLOR_SEVERITY_HIGH};background:{COLOR_SEVERITY_HIGH_BG};padding:1px 10px;border-radius:20px'>{high_s}</span>
                 </div>
                 <div style='display:flex;justify-content:space-between;margin-bottom:8px'>
                     <span style='font-size:13px;opacity:0.7'>Medium</span>
@@ -148,13 +189,6 @@ else:
     ACCENT    = "#2563EB"
     ACCENT2   = "#7C3AED"
     CHART_BG  = "#FFFFFF"
-
-SEVERITY_COLORS = {
-    "Critical": "#FF4560",
-    "High":     "#FF8C00",
-    "Medium":   "#FFB300",
-    "Low":      "#00E396"
-}
 
 # ---------------------------------------------------
 # CUSTOM CSS  — Production-Grade SAAS UI
@@ -374,9 +408,9 @@ st.markdown(
     /* Severity Badges */
     .badge-critical {{
         display: inline-block;
-        background: rgba(255,69,96,0.15);
-        color: #FF4560;
-        border: 1px solid rgba(255,69,96,0.3);
+        background: {COLOR_SEVERITY_CRITICAL_BG};
+        color: {COLOR_SEVERITY_CRITICAL};
+        border: 1px solid {COLOR_SEVERITY_CRITICAL_BORDER};
         border-radius: 20px;
         padding: 3px 12px;
         font-size: 12px;
@@ -386,9 +420,9 @@ st.markdown(
 
     .badge-high {{
         display: inline-block;
-        background: rgba(255,140,0,0.15);
-        color: #FF8C00;
-        border: 1px solid rgba(255,140,0,0.3);
+        background: {COLOR_SEVERITY_HIGH_BG};
+        color: {COLOR_SEVERITY_HIGH};
+        border: 1px solid {COLOR_SEVERITY_HIGH_BORDER};
         border-radius: 20px;
         padding: 3px 12px;
         font-size: 12px;
@@ -673,11 +707,41 @@ if page == "Upload Evidence":
                     unsafe_allow_html=True
                 )
 
+        st.markdown(
+            f"<div class='section-header'>"
+            f"<img src='https://cdn-icons-png.flaticon.com/512/107/107799.png' width='20'/>"
+            f"Assessment Framework</div>",
+            unsafe_allow_html=True
+        )
+
+        framework_keys = list(FRAMEWORK_OPTIONS.keys())
+        default_fw_idx = framework_keys.index(
+            FRAMEWORK_ID_TO_LABEL.get(
+                st.session_state.assessment_framework,
+                "SOC 2 Type II",
+            )
+        )
+
+        selected_framework_label = st.selectbox(
+            "Review alignment",
+            options=framework_keys,
+            index=default_fw_idx,
+            help="Choose SOC 2, ISO 27001, or general TPRM lens for AI evidence review.",
+            key="framework_select",
+        )
+        st.session_state.assessment_framework = FRAMEWORK_OPTIONS[selected_framework_label]
+        st.session_state.framework_label = selected_framework_label
+
+        st.caption(
+            "Analysis uses audit-safe language and maps findings to the selected framework "
+            "(Trust Services Criteria for SOC 2, Annex A themes for ISO 27001)."
+        )
+
         st.markdown("<br>", unsafe_allow_html=True)
 
         analyze_button = st.button(
             "Run AI Risk Analysis",
-            width="stretch"
+            **_stretched_width_kwargs(),
         )
 
         if analyze_button:
@@ -707,8 +771,11 @@ if page == "Upload Evidence":
                     status.info(f"Analyzing {uploaded_file.name} ({file_idx + 1}/{total})…")
 
                     response = requests.post(
-                        "https://riskanalysis-2ohk.onrender.com/analyze",
-                        files=files
+                        "https://risklens-ai-go8b.onrender.com/analyze",
+                        files=files,
+                        data={
+                            "framework": st.session_state.assessment_framework,
+                        },
                     )
 
                     pct = 20 + int(70 * (file_idx + 1) / total)
@@ -718,6 +785,10 @@ if page == "Upload Evidence":
 
                     if "analysis" in data:
                         analysis = data["analysis"]
+                        if data.get("framework_label"):
+                            st.session_state.framework_label = data["framework_label"]
+                        elif analysis.get("framework_label"):
+                            st.session_state.framework_label = analysis["framework_label"]
                         st.session_state.final_summary += (
                             analysis.get("summary", "") + "\n"
                         )
@@ -764,10 +835,10 @@ elif page == "Analysis Dashboard":
         risk_score = critical * 40 + high * 25 + medium * 15 + low * 5
 
         score_color = (
-            "#FF4560" if risk_score > 200 else
-            "#FF8C00" if risk_score > 100 else
-            "#FFB300" if risk_score >  50 else
-            "#00E396"
+            COLOR_SEVERITY_CRITICAL if risk_score > 200 else
+            COLOR_SEVERITY_HIGH if risk_score > 100 else
+            COLOR_SEVERITY_MEDIUM if risk_score > 50 else
+            COLOR_SEVERITY_LOW
         )
 
         # --- KPI Row ---
@@ -793,7 +864,7 @@ elif page == "Analysis Dashboard":
                 "Critical / High",
                 str(critical + high),
                 "https://cdn-icons-png.flaticon.com/512/564/564619.png",
-                "#FF4560"
+                COLOR_SEVERITY_CRITICAL
             )
         with col4:
             metric_card(
@@ -874,7 +945,12 @@ elif page == "Analysis Dashboard":
                 values=severity_df["Count"],
                 hole=0.65,
                 marker=dict(
-                    colors=["#FF4560", "#FF8C00", "#FFB300", "#00E396"],
+                    colors=[
+                        COLOR_SEVERITY_CRITICAL,
+                        COLOR_SEVERITY_HIGH,
+                        COLOR_SEVERITY_MEDIUM,
+                        COLOR_SEVERITY_LOW,
+                    ],
                     line=dict(color=CHART_BG, width=3)
                 ),
                 textfont=dict(family="DM Sans", size=13, color=TEXT),
@@ -904,7 +980,7 @@ elif page == "Analysis Dashboard":
                 )]
             )
 
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, **_stretched_width_kwargs())
 
         with chart_col2:
             categories = {}
@@ -958,7 +1034,7 @@ elif page == "Analysis Dashboard":
                 margin=dict(t=50, b=20, l=20, r=20),
             )
 
-            st.plotly_chart(fig2, width="stretch")
+            st.plotly_chart(fig2, **_stretched_width_kwargs())
 
         # --- Trend / Score Gauge ---
         gauge_col, tbl_col = st.columns([1, 2])
@@ -984,8 +1060,8 @@ elif page == "Analysis Dashboard":
                     steps=[
                         dict(range=[0, 50],   color="rgba(0,227,150,0.1)"),
                         dict(range=[50, 100],  color="rgba(255,179,0,0.1)"),
-                        dict(range=[100, 200], color="rgba(255,140,0,0.1)"),
-                        dict(range=[200, max(500, risk_score + 50)], color="rgba(255,69,96,0.1)")
+                        dict(range=[100, 200], color="rgba(229, 57, 53, 0.12)"),
+                        dict(range=[200, max(500, risk_score + 50)], color="rgba(128, 0, 0, 0.12)")
                     ],
                     threshold=dict(
                         line=dict(color=score_color, width=3),
@@ -1001,7 +1077,7 @@ elif page == "Analysis Dashboard":
                 margin=dict(t=30, b=10, l=20, r=20),
                 height=260
             )
-            st.plotly_chart(fig3, width="stretch")
+            st.plotly_chart(fig3, **_stretched_width_kwargs())
 
         with tbl_col:
             st.markdown(
@@ -1021,10 +1097,10 @@ elif page == "Analysis Dashboard":
             )
 
             for sev, cnt, weight, color in [
-                ("Critical", critical, 40, "#FF4560"),
-                ("High",     high,     25, "#FF8C00"),
-                ("Medium",   medium,   15, "#FFB300"),
-                ("Low",      low,       5, "#00E396"),
+                ("Critical", critical, 40, COLOR_SEVERITY_CRITICAL),
+                ("High",     high,     25, COLOR_SEVERITY_HIGH),
+                ("Medium",   medium,   15, COLOR_SEVERITY_MEDIUM),
+                ("Low",      low,       5, COLOR_SEVERITY_LOW),
             ]:
                 breakdown_html += (
                     f"<tr style='border-bottom:1px solid {BORDER}'>"
@@ -1121,10 +1197,16 @@ elif page == "Reports":
 
                 def color_severity(val):
                     colors = {
-                        "Critical": "background-color: rgba(255,69,96,0.15); color: #FF4560; font-weight: 700",
-                        "High":     "background-color: rgba(255,140,0,0.15); color: #FF8C00; font-weight: 700",
-                        "Medium":   "background-color: rgba(255,179,0,0.15); color: #FFB300; font-weight: 700",
-                        "Low":      "background-color: rgba(0,227,150,0.12); color: #00E396; font-weight: 700",
+                        "Critical": (
+                            f"background-color: {COLOR_SEVERITY_CRITICAL_BG}; "
+                            f"color: {COLOR_SEVERITY_CRITICAL}; font-weight: 700"
+                        ),
+                        "High": (
+                            f"background-color: {COLOR_SEVERITY_HIGH_BG}; "
+                            f"color: {COLOR_SEVERITY_HIGH}; font-weight: 700"
+                        ),
+                        "Medium": "background-color: rgba(255,179,0,0.15); color: #FFB300; font-weight: 700",
+                        "Low": "background-color: rgba(0,227,150,0.12); color: #00E396; font-weight: 700",
                     }
                     return colors.get(val, "")
 
@@ -1137,8 +1219,8 @@ elif page == "Reports":
 
                 st.dataframe(
                     styled_df,
-                    width="stretch",
-                    height=420
+                    height=420,
+                    **_stretched_width_kwargs(),
                 )
 
             st.markdown("<br>", unsafe_allow_html=True)
@@ -1192,7 +1274,7 @@ elif page == "Reports":
                 data=json.dumps(st.session_state.all_risks, indent=2),
                 file_name=f"risk_assessment_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
                 mime="application/json",
-                width="stretch"
+                **_stretched_width_kwargs(),
             )
         with dl_col2:
             if st.session_state.all_risks:
@@ -1202,7 +1284,7 @@ elif page == "Reports":
                     data=csv_data,
                     file_name=f"risk_assessment_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv",
-                    width="stretch"
+                    **_stretched_width_kwargs(),
                 )
 
 # ---------------------------------------------------
@@ -1241,6 +1323,10 @@ elif page == "Settings":
                         <td style='padding:14px 0;color:{TEXT_MUTED};font-size:14px'>AI Engine</td>
                         <td style='padding:14px 0;font-weight:600;font-size:14px'>Groq LLM</td>
                     </tr>
+                    <tr style='border-bottom:1px solid {BORDER}'>
+                        <td style='padding:14px 0;color:{TEXT_MUTED};font-size:14px'>Review Framework</td>
+                        <td style='padding:14px 0;font-weight:600;font-size:14px'>{st.session_state.framework_label}</td>
+                    </tr>
                     <tr>
                         <td style='padding:14px 0;color:{TEXT_MUTED};font-size:14px'>Status</td>
                         <td style='padding:14px 0;font-weight:600;font-size:14px'>
@@ -1268,7 +1354,7 @@ elif page == "Settings":
                 <div style='background:{"rgba(255,255,255,0.04)" if st.session_state.theme=="dark" else "rgba(0,0,0,0.04)"};
                             border-radius:10px;padding:12px 16px;font-family:monospace;font-size:13px;
                             border:1px solid {BORDER};word-break:break-all'>
-                    https://riskanalysis-2ohk.onrender.com/analyze
+                    https://risklens-ai-go8b.onrender.com/analyze
                 </div>
             </div>
             """,
@@ -1316,11 +1402,11 @@ elif page == "Settings":
                         </div>
                         <div style='display:flex;justify-content:space-between'>
                             <span style='color:{TEXT_MUTED}'>101 – 200</span>
-                            <span style='color:#FF8C00;font-weight:600'>High Risk</span>
+                            <span style='color:{COLOR_SEVERITY_HIGH};font-weight:600'>High Risk</span>
                         </div>
                         <div style='display:flex;justify-content:space-between'>
                             <span style='color:{TEXT_MUTED}'>&gt; 200</span>
-                            <span style='color:#FF4560;font-weight:600'>Critical Risk</span>
+                            <span style='color:{COLOR_SEVERITY_CRITICAL};font-weight:600'>Critical Risk</span>
                         </div>
                     </div>
                 </div>
