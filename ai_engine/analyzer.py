@@ -9,6 +9,7 @@ from ai_engine.prompt_templates import (
     normalize_framework,
     get_framework_label,
 )
+from risk_engine.risk_categories import normalize_risks
 
 load_dotenv()
 
@@ -87,7 +88,7 @@ def analyze_text(text: str, framework: str | None = None):
             )
 
             all_risks.extend(
-                result.get("risks", [])
+                normalize_risks(result.get("risks", []))
             )
 
         except Exception as e:

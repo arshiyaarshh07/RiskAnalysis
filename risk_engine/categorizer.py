@@ -1,21 +1,9 @@
-def categorize_risk(text):
+from risk_engine.risk_categories import infer_category_from_text, normalize_risk_item
 
-    mapping = {
-        "mfa": "Access Control",
-        "access review": "Access Control",
-        "encryption": "Data Protection",
-        "incident": "Incident Response",
-        "backup": "Business Continuity",
-        "logging": "Logging & Monitoring",
-        "vendor": "Third-Party Risk",
-        "compliance": "Compliance",
-        "vulnerability": "Vulnerability Management"
-    }
 
-    text_lower = text.lower()
+def categorize_risk(text: str) -> str:
+    return infer_category_from_text(text)
 
-    for keyword, category in mapping.items():
-        if keyword in text_lower:
-            return category
 
-    return "Governance"
+def categorize_risk_record(risk_record: dict) -> dict:
+    return normalize_risk_item(risk_record)

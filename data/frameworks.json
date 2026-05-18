@@ -18,16 +18,20 @@
     }
   },
   "categories": [
-    "Access Control",
-    "Identity & MFA",
-    "Data Protection",
-    "Encryption",
-    "Logging & Monitoring",
-    "Incident Response",
-    "Vulnerability Management",
-    "Business Continuity",
-    "Governance",
+    "Strategic Risk",
+    "Operational Risk",
+    "Cybersecurity Risk",
+    "Compliance Risk",
+    "Financial Risk",
+    "Reputational Risk",
+    "Legal Risk",
+    "Privacy Risk",
     "Third-Party Risk",
-    "Compliance Controls"
+    "Technology Risk",
+    "Business Continuity Risk",
+    "Physical Security Risk",
+    "Data Risk",
+    "Human Resource Risk",
+    "Environmental & Social Risk"
   ]
 }

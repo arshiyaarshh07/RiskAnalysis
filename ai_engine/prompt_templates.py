@@ -5,7 +5,11 @@ TPRM evidence-review prompts with framework-specific alignment (SOC 2, ISO 27001
 import json
 from pathlib import Path
 
+from risk_engine.risk_categories import TPRM_RISK_CATEGORIES
+
 FRAMEWORKS_PATH = Path(__file__).resolve().parent.parent / "data" / "frameworks.json"
+
+TPRM_CATEGORIES_BLOCK = "\n".join(f"- {c}" for c in TPRM_RISK_CATEGORIES)
 
 VALID_FRAMEWORKS = frozenset({"soc2", "iso27001", "tprm"})
 
@@ -92,11 +96,12 @@ STRICT RULES:
 1. ONLY analyze provided evidence — never hallucinate.
 2. NEVER assume controls exist if evidence is missing.
 3. NEVER state: "Vendor is insecure", "Confirmed breach", or "Control failure confirmed".
-4. ALWAYS use audit-safe language: "Potential Risk", "Evidence could not verify",
-   "Missing evidence observed", "Insufficient evidence provided".
-5. If evidence is unavailable, incomplete, or unclear, use "No evidence provided".
-6. Return STRICT JSON ONLY — no markdown fences or commentary outside JSON.
-7. This is AI-assisted preliminary evidence review only — no legal conclusions,
+4. ALWAYS use audit-safe language IN THE "risk" FIELD ONLY (never as category):
+   "Evidence could not verify", "Missing evidence observed", "Insufficient evidence provided".
+5. NEVER use "Potential Risk" or "Missing Evidence" as a category value.
+6. If evidence is unavailable, incomplete, or unclear, state that in the "risk" field.
+7. Return STRICT JSON ONLY — no markdown fences or commentary outside JSON.
+8. This is AI-assisted preliminary evidence review only — no legal conclusions,
    compliance certification claims, or final audit statements.
 """
 
@@ -108,8 +113,8 @@ You are a Senior Cybersecurity Risk Analyst specializing in:
 - Third-Party Risk Management (TPRM)
 - Vendor security evidence analysis
 
-Your task is to review ONLY the provided evidence and identify POTENTIAL cybersecurity
-risks, control gaps, missing evidence, and governance concerns.
+Your task is to review ONLY the provided evidence and identify risks, control gaps,
+missing evidence, and governance concerns using standard TPRM risk categories.
 
 IMPORTANT RULES:
 
@@ -120,15 +125,13 @@ IMPORTANT RULES:
    - "Confirmed breach"
    - "Control failure confirmed"
 
-4. ALWAYS use professional audit-safe language such as:
-   - "Potential Risk"
-   - "Evidence could not verify"
-   - "Missing evidence observed"
-   - "Insufficient evidence provided"
+4. In the "risk" field, use professional audit-safe wording such as:
+   - "Evidence could not verify..."
+   - "Missing evidence observed for..."
+   - "Insufficient evidence provided regarding..."
+   Do NOT label the category as "Potential Risk" or "Missing Evidence".
 
-5. If evidence is unavailable, incomplete, or unclear:
-   respond with:
-   "No evidence provided"
+5. If evidence is unavailable, incomplete, or unclear, describe that in the "risk" field.
 
 6. Review should be aligned with the ACTIVE REVIEW FRAMEWORK specified below
    (SOC 2, ISO 27001, or general TPRM as applicable).
@@ -139,21 +142,27 @@ IMPORTANT RULES:
 
 --------------------------------------------------
 
-ANALYSIS OBJECTIVES
+RISK CATEGORY RULES (MANDATORY)
 
-Analyze the evidence for:
+The "category" field MUST be exactly ONE of these TPRM major risk categories:
 
+{tprm_categories}
+
+NEVER use as category:
+- Potential Risk
+- Missing Evidence
 - Access Control
-- Identity & MFA
-- Data Protection
-- Encryption
-- Logging & Monitoring
-- Incident Response
-- Vulnerability Management
-- Business Continuity
-- Governance
-- Third-Party Risk
-- Compliance Controls
+- Identity and Access Management
+- Or any control theme / audit phrase
+
+Map each finding to the single best-fit major category above (e.g., missing MFA → Cybersecurity Risk;
+no DRP → Business Continuity Risk; GDPR gap → Compliance Risk).
+
+Evaluate risk as: Likelihood × Impact (document implicitly via severity).
+
+Distinguish:
+- Inherent risk: risk before controls (when evidence shows gap)
+- Residual risk: risk after controls (when evidence shows partial mitigation)
 
 --------------------------------------------------
 
@@ -195,8 +204,8 @@ Return ONLY valid JSON.
 
   "risks": [
     {{
-      "category": "Access Control",
-      "risk": "Quarterly privileged access review evidence could not be verified.",
+      "category": "Cybersecurity Risk",
+      "risk": "Evidence could not verify quarterly privileged access review for critical systems.",
       "severity": "Medium",
       "recommendation": "Implement automated quarterly privileged access review workflows and maintain audit evidence.",
       "confidence": 88
@@ -216,10 +225,9 @@ Do NOT produce:
 - final audit statements
 
 Only identify:
-- potential findings
-- missing evidence
-- possible risks
-- operational concerns
+- risks aligned to major TPRM categories
+- missing evidence (described in the risk field)
+- operational and security concerns
 
 --------------------------------------------------
 
@@ -236,5 +244,6 @@ def build_analysis_prompt(evidence_text: str, framework: str | None = None) -> s
     header = f"ACTIVE REVIEW FRAMEWORK: {label}\n"
     return header + TPRM_ANALYSIS_PROMPT.format(
         framework_context=framework_context.strip(),
+        tprm_categories=TPRM_CATEGORIES_BLOCK,
         evidence_text=evidence_text,
     )

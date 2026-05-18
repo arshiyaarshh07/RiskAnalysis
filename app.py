@@ -1,6 +1,11 @@
 import streamlit as st
 import requests
 import pandas as pd
+from risk_engine.risk_categories import (
+    TPRM_RISK_CATEGORIES,
+    normalize_risks,
+    risks_to_report_rows,
+)
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
@@ -792,7 +797,7 @@ if page == "Upload Evidence":
                         st.session_state.final_summary += (
                             analysis.get("summary", "") + "\n"
                         )
-                        risks = analysis.get("risks", [])
+                        risks = normalize_risks(analysis.get("risks", []))
                         st.session_state.all_risks.extend(risks)
                         st.session_state.uploaded_file_names.append(uploaded_file.name)
 
@@ -825,7 +830,8 @@ elif page == "Analysis Dashboard":
             unsafe_allow_html=True
         )
     else:
-        all_risks = st.session_state.all_risks
+        all_risks = normalize_risks(st.session_state.all_risks)
+        st.session_state.all_risks = all_risks
 
         critical = len([r for r in all_risks if r.get("severity") == "Critical"])
         high     = len([r for r in all_risks if r.get("severity") == "High"])
@@ -894,11 +900,11 @@ elif page == "Analysis Dashboard":
                 key="sev_filter"
             )
 
-        all_categories = list({r.get("category", "Other") for r in all_risks})
+        all_categories = sorted({r.get("category") for r in all_risks if r.get("category")})
         with fcol2:
             category_filter = st.multiselect(
                 "Category",
-                options=all_categories,
+                options=all_categories or TPRM_RISK_CATEGORIES,
                 default=all_categories,
                 key="cat_filter"
             )
@@ -914,7 +920,7 @@ elif page == "Analysis Dashboard":
         filtered = [
             r for r in all_risks
             if r.get("severity", "Low")    in severity_filter
-            and r.get("category", "Other") in category_filter
+            and r.get("category", "") in category_filter
             and (
                 search_term.lower() in r.get("risk", "").lower()
                 or search_term.lower() in r.get("category", "").lower()
@@ -1165,7 +1171,8 @@ elif page == "Reports":
         )
 
         if st.session_state.all_risks:
-            all_risks = st.session_state.all_risks
+            all_risks = normalize_risks(st.session_state.all_risks)
+            st.session_state.all_risks = all_risks
 
             # Filters for report page
             rp_col1, rp_col2 = st.columns([1, 1])
@@ -1177,23 +1184,27 @@ elif page == "Reports":
                     key="rp_sev"
                 )
             with rp_col2:
-                rp_cats = list({r.get("category", "Other") for r in all_risks})
+                rp_cats = sorted(
+                    {r.get("category") for r in all_risks if r.get("category")}
+                    | set(TPRM_RISK_CATEGORIES)
+                )
                 rp_cat = st.multiselect(
                     "Filter by Category",
                     rp_cats,
-                    default=rp_cats,
+                    default=sorted({r.get("category") for r in all_risks if r.get("category")}),
                     key="rp_cat"
                 )
 
             filtered_risks = [
                 r for r in all_risks
                 if r.get("severity", "Low") in rp_sev
-                and r.get("category", "Other") in rp_cat
+                and r.get("category", "") in rp_cat
             ]
 
-            df = pd.DataFrame(filtered_risks)
+            report_rows = risks_to_report_rows(filtered_risks)
+            df = pd.DataFrame(report_rows)
 
-            if not df.empty and "severity" in df.columns:
+            if not df.empty and "Severity" in df.columns:
 
                 def color_severity(val):
                     colors = {
@@ -1210,16 +1221,16 @@ elif page == "Reports":
                     }
                     return colors.get(val, "")
 
-                # pandas 2.1+ / 3.x: Styler.applymap was renamed to Styler.map
                 _styler = df.style
                 if hasattr(_styler, "map"):
-                    styled_df = _styler.map(color_severity, subset=["severity"])
+                    styled_df = _styler.map(color_severity, subset=["Severity"])
                 else:
-                    styled_df = _styler.applymap(color_severity, subset=["severity"])
+                    styled_df = _styler.applymap(color_severity, subset=["Severity"])
 
                 st.dataframe(
                     styled_df,
                     height=420,
+                    hide_index=True,
                     **_stretched_width_kwargs(),
                 )
 
@@ -1278,7 +1289,9 @@ elif page == "Reports":
             )
         with dl_col2:
             if st.session_state.all_risks:
-                csv_data = pd.DataFrame(st.session_state.all_risks).to_csv(index=False)
+                csv_data = pd.DataFrame(
+                    risks_to_report_rows(st.session_state.all_risks)
+                ).to_csv(index=False)
                 st.download_button(
                     label="Download as CSV",
                     data=csv_data,
