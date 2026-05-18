@@ -247,7 +247,7 @@ def risks_to_report_rows(risks: list) -> list:
         rows.append(
             {
                 "S.No": idx,
-                "Category": r.get("category", ""),
+                "Risk Domain": r.get("category", ""),
                 "Risk": r.get("risk", ""),
                 "Severity": r.get("severity", ""),
                 "Recommendation": r.get("recommendation", ""),
